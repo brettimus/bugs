@@ -1,6 +1,6 @@
 import { pgTable, serial, text, doublePrecision, jsonb, timestamp } from 'drizzle-orm/pg-core';
 
-export const products = pgTable('bugs', {
+export const bugs = pgTable('bugs', {
   id: serial('id').primaryKey(),
   name: text('name'),
   description: text('description'),

@@ -1,9 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 import { Hono } from 'hono'
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
 
 import { Mizu } from "./mizu/mizu";
-import { logger } from "./mizu/mizu-logger";
+import { logger } from "./mizu/mizu-hono-logger";
+import * as schema from "./db/schema";
 
 type Bindings = {
   DATABASE_URL: string;
@@ -29,7 +31,7 @@ app.use(async (c, next) => {
   Mizu.init(
     rawRequest,
     {
-      MIZU_ENDPOINT: "http://localhost:8788/v0/logs",
+      MIZU_ENDPOINT: c.env.MIZU_ENDPOINT,
     },
     ctx,
   );
@@ -47,19 +49,47 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
+app.get('/bugs', async (c) => {
+  const sql = neon(c.env.DATABASE_URL);
+  const db = drizzle(sql);
+  const bugs = await db.select().from(schema.bugs);
+  return c.json({ bugs })
+})
+
+app.get('/bugs/:id', async (c) => {
+  const { id: idString } = c.req.param();
+  const id = Number.parseInt(idString, 10);
+  const sql = neon(c.env.DATABASE_URL);
+  const db = drizzle(sql, { schema });
+  const bug = await db.select().from(schema.bugs).where(eq(schema.bugs.id, id));
+
+  return c.json(bug)
+})
+
+// ERROR SCENARIO: Accidentally defining an unreachable route
+//
+app.get('/bugs/unreachable', async (c) => {
+  return c.json({ message: "You should not see this message" })
+})
+
 // ERROR SCENARIO: Accidentally accessing process.env
 //
-// app.get('/bugs', (c) => {
+// app.get('/bugs/:id', async (c) => {
+//   const { id: idString } = c.req.param();
+//   const id = Number.parseInt(idString, 10);
+//   const sql = neon(process.env.DATABASE_URL ?? "");
+//   const db = drizzle(sql, { schema});
+//   const bug = await db.select().from(schema.bugs).where(eq(schema.bugs.id, id));
+
+//   return c.json(bug)
+// })
+
+// ERROR SCENARIO: Accessing table or column that does not exist (e.g., before running migrations)
+//
+// app.get('/insects', (c) => {
 //   const sql = neon(process.env.DATABASE_URL);
 //   const db = drizzle(sql);
 //   return c.text('Hello Hono!')
 // })
-
-app.get('/bugs', async (c) => {
-  const sql = neon(c.env.DATABASE_URL);
-  const db = drizzle(sql);
-  const bugs = await db.select().from("bugs");
-  return c.text('Hello Hono!')
-})
 
 export default app

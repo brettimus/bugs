@@ -1,1 +1,2 @@
-MIZU_ENDPOINT=""
+MIZU_ENDPOINT="http://localhost:8788/v0/logs"
+DATABASE_URL=""
