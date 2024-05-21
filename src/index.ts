@@ -1,4 +1,7 @@
+import { neon } from '@neondatabase/serverless';
 import { Hono } from 'hono'
+import { drizzle } from 'drizzle-orm/neon-http';
+
 import { Mizu } from "./mizu/mizu";
 import { logger } from "./mizu/mizu-logger";
 
@@ -41,6 +44,21 @@ app.use(async (c, next) => {
 });
 
 app.get('/', (c) => {
+  return c.text('Hello Hono!')
+})
+
+// ERROR SCENARIO: Accidentally accessing process.env
+//
+// app.get('/bugs', (c) => {
+//   const sql = neon(process.env.DATABASE_URL);
+//   const db = drizzle(sql);
+//   return c.text('Hello Hono!')
+// })
+
+app.get('/bugs', async (c) => {
+  const sql = neon(c.env.DATABASE_URL);
+  const db = drizzle(sql);
+  const bugs = await db.select().from("bugs");
   return c.text('Hello Hono!')
 })
 
