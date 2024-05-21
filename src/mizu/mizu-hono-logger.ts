@@ -97,7 +97,7 @@ export const logger = (
 		const { method } = c.req;
 		const path = getPath(c.req.raw);
 
-		logReq(fn, method, path,);
+		logReq(fn, method, path, c.env, c.req.param(), c.req.query);
 
 		const start = Date.now();
 

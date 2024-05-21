@@ -36,7 +36,7 @@ export const Mizu = {
 			// TODO - Fix type of `originalMessage`, since Hono automatically calls `console.error` with an `Error` when a handler throws an uncaught error locally!!!
 			//        and devs could really put anything in there...
 			console[level] = (originalMessage: string | Error, ...args: unknown[]) => {
-				const timestamp = Date.now();
+				const timestamp = new Date().toISOString();
 				let message = originalMessage;
 				if (message instanceof Error) {
 					message = JSON.stringify(errorToJson(message));
