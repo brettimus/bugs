@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { Mizu } from "./mizu/mizu";
 import { logger } from "./mizu/mizu-hono-logger";
 import * as schema from "./db/schema";
+import { getTraceId } from './mizu/stupid-trace';
 
 type Bindings = {
   DATABASE_URL: string;
@@ -16,32 +17,40 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // Set up request logging
 //
-// HACK - Use a custom print function that just invokes console.log
-//        We do this since console.log is monkeypatched later in the mizu middleware
-// NOTE - This will log every piece of matched middleware for each request
 // NOTE - We need to pass in the app object so that we can access the router
+// NOTE - This will log every piece of matched middleware for each request
+//
 app.use(
-  logger(app, (message: string, ...args: unknown[]) => console.log(message, args)),
+  logger(
+    app,
+    // HACK - Use a custom print function that just invokes console.log
+    //        We do this since console.log is monkeypatched later in the mizu middleware
+    (message: string, ...args: unknown[]) => console.log(message, args),
+    // HACK - Use a custom error print function that just invokes console.error
+    //        We do this since console.error is monkeypatched later in the mizu middleware
+    (message: string, ...args: unknown[]) => console.error(message, args)
+  )
 );
 
 // Mizu Tracing Middleware
 app.use(async (c, next) => {
-  const rawRequest = c.req.raw;
+  // const rawRequest = c.req.raw;
+  const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
   const ctx = c.executionCtx;
+
   Mizu.init(
-    rawRequest,
-    {
-      MIZU_ENDPOINT: c.env.MIZU_ENDPOINT,
-    },
+    getTraceId(c),
+    config,
     ctx,
   );
 
   await next();
 
   if (c.error) {
-    console.error("Exception in Hono App", c.error);
+    // console.error("Exception in Hono App", c.error);
   } else {
-    console.log("Response Success");
+    // TODO - Uncomment for success logs...
+    // console.log("Response Success");
   }
 });
 
@@ -73,23 +82,23 @@ app.get('/bugs/unreachable', async (c) => {
 })
 
 // ERROR SCENARIO: Accidentally accessing process.env
-//
-// app.get('/bugs/:id', async (c) => {
-//   const { id: idString } = c.req.param();
-//   const id = Number.parseInt(idString, 10);
-//   const sql = neon(process.env.DATABASE_URL ?? "");
-//   const db = drizzle(sql, { schema});
-//   const bug = await db.select().from(schema.bugs).where(eq(schema.bugs.id, id));
+// 
+app.get('/insects/:id', async (c) => {
+  const { id: idString } = c.req.param();
+  const id = Number.parseInt(idString, 10);
+  const sql = neon(process.env.DATABASE_URL ?? "");
+  const db = drizzle(sql, { schema });
+  const bug = await db.select().from(schema.bugs).where(eq(schema.bugs.id, id));
 
-//   return c.json(bug)
-// })
+  return c.json(bug)
+})
 
 // ERROR SCENARIO: Accessing table or column that does not exist (e.g., before running migrations)
 //
-// app.get('/insects', (c) => {
-//   const sql = neon(process.env.DATABASE_URL);
-//   const db = drizzle(sql);
-//   return c.text('Hello Hono!')
-// })
+app.get('/insects', (c) => {
+  const sql = neon(c.env.DATABASE_URL);
+  const db = drizzle(sql);
+  return c.text('Hello Hono!')
+})
 
 export default app

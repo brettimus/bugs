@@ -1,3 +1,11 @@
+import { errorToJson, polyfillWaitUntil } from "./utils";
+
+declare module 'hono' {
+	interface ContextVariableMap {
+		mizuTraceId: string
+	}
+}
+
 export const RECORDED_CONSOLE_METHODS = [
 	"debug",
 	"error",
@@ -6,19 +14,13 @@ export const RECORDED_CONSOLE_METHODS = [
 	"warn",
 ] as const;
 
-export type ExtendedExecutionContext = ExecutionContext & {
-	__waitUntilTimer?: ReturnType<typeof setInterval>;
-	__waitUntilPromises?: Promise<void>[];
-	waitUntilFinished?: () => Promise<void>;
-};
-
 type MizuEnv = {
 	MIZU_ENDPOINT: string;
 };
 
 export const Mizu = {
 	init: (
-		request: Request,
+		traceId: string,
 		{ MIZU_ENDPOINT: mizuEndpoint }: MizuEnv,
 		ctx: ExecutionContext,
 		service?: string,
@@ -27,12 +29,19 @@ export const Mizu = {
 		// https://github.com/highlight/highlight/pull/6480
 		polyfillWaitUntil(ctx);
 
-		// Monkeypatch console.log because it's the only way to send consumable logs locally without setting up an otel colletor
-		for (const m of RECORDED_CONSOLE_METHODS) {
-			const originalConsoleMethod = console[m];
+		// Monkeypatch console.log (etc) because it's the only way to send consumable logs locally without setting up an otel colletor
+		for (const level of RECORDED_CONSOLE_METHODS) {
+			const originalConsoleMethod = console[level];
 
-			console[m] = (message: string, ...args: unknown[]) => {
-				// sdk.logger[m].apply(sdk.logger, [message, ...args]);
+			// TODO - Fix type of `originalMessage`, since Hono automatically calls `console.error` with an `Error` when a handler throws an uncaught error locally!!!
+			//        and devs could really put anything in there...
+			console[level] = (originalMessage: string | Error, ...args: unknown[]) => {
+				const timestamp = Date.now();
+				let message = originalMessage;
+				if (message instanceof Error) {
+					message = JSON.stringify(errorToJson(message));
+					console.log("JSONIFIED ERROR MESSAGE", message);
+				}
 				ctx.waitUntil(
 					fetch(mizuEndpoint, {
 						method: "POST",
@@ -40,10 +49,12 @@ export const Mizu = {
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
+							level,
+							traceId,
 							service,
-							// NOTE - mizu service expects valid json
 							message,
 							args,
+							timestamp,
 						}),
 					}),
 				);
@@ -53,29 +64,3 @@ export const Mizu = {
 	},
 };
 
-function polyfillWaitUntil(ctx: ExtendedExecutionContext) {
-	if (typeof ctx.waitUntil !== "function") {
-		if (!Array.isArray(ctx.__waitUntilPromises)) {
-			ctx.__waitUntilPromises = [];
-		}
-
-		ctx.waitUntil = function waitUntil(promise: Promise<void>) {
-			// biome-ignore lint/style/noNonNullAssertion: https://github.com/highlight/highlight/pull/6480
-			ctx.__waitUntilPromises!.push(promise);
-			ctx.__waitUntilTimer = setInterval(() => {
-				Promise.allSettled(ctx.__waitUntilPromises || []).then(() => {
-					if (ctx.__waitUntilTimer) {
-						clearInterval(ctx.__waitUntilTimer);
-						ctx.__waitUntilTimer = undefined;
-					}
-				});
-			}, 200);
-		};
-	}
-
-	ctx.waitUntilFinished = async function waitUntilFinished() {
-		if (ctx.__waitUntilPromises) {
-			await Promise.allSettled(ctx.__waitUntilPromises);
-		}
-	};
-}

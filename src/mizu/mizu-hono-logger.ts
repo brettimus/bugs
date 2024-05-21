@@ -1,6 +1,7 @@
 import type { HonoBase } from "hono/hono-base";
 import type { MiddlewareHandler } from "hono/types";
 import { getPath } from "hono/utils/url";
+import { getTraceId, setTraceId } from "./stupid-trace";
 
 const humanize = (times: string[]) => {
 	const [delimiter, separator] = [",", "."];
@@ -40,55 +41,80 @@ const colorStatus = (status: number) => {
 
 type PrintFunc = (str: string, ...rest: string[]) => void;
 
-function log(
+function logReq(
 	fn: PrintFunc,
-	lifecycle: "request" | "response",
 	method: string,
 	path: string,
-	// NOTE - only matches for response right now
+	env: Record<string, string>,
+	params: Record<string, string>,
+	query: Record<string, string>,
+) {
+	const out = {
+		method,
+		lifecycle: "request",
+		path,
+		env,
+		params,
+		query
+	};
+
+	// TODO - Add message here?
+	fn(JSON.stringify(out));
+}
+
+function logRes(
+	fn: PrintFunc,
+	method: string,
+	path: string,
 	matchedPathPattern?: string,
-  matchedPathHandler?: string,
+	matchedPathHandler?: string,
 	status = 0,
 	elapsed?: string,
 ) {
 	const out = {
 		method,
-		lifecycle,
+		lifecycle: "response",
 		path,
 		route: matchedPathPattern,
-    handler: matchedPathHandler,
+		handler: matchedPathHandler,
 		status: colorStatus(status),
 		elapsed,
 	};
+
+	// TODO - Add message here?
 	fn(JSON.stringify(out));
 }
 
 export const logger = (
 	app: { router: HonoBase["router"] },
 	fn: PrintFunc = console.log,
+	errFn: PrintFunc = console.error,
 ): MiddlewareHandler => {
 	return async function logger(c, next) {
+		// HACK - Set trace id, which is used in monkey patched console.* methods!
+		setTraceId(c);
+
 		const { method } = c.req;
 		const path = getPath(c.req.raw);
 
-		log(fn, "request", method, path);
+		logReq(fn, method, path,);
 
 		const start = Date.now();
 
 		await next();
 
-		// Code to get the path *pattern* that was matched
+		// HACK - Code to get the path *pattern* that was matched
 		//
-		// THIS IS BASED OFF OF SOURCE CODE OF HONO
-		const routerMatchFoResponse = app.router.match(c.req.method, c.req.path);
-		const matchedPathFromRouter = routerMatchFoResponse[0].map(
+		// THIS IS BASED OFF OF SOURCE CODE OF HONO ITSELF!
+		const routerMatchForResponse = app.router.match(c.req.method, c.req.path);
+		const matchedPathFromRouter = routerMatchForResponse[0].map(
 			([[, route]]) => route,
 		)[c.req.routeIndex];
 
-    const matchedPathPattern = matchedPathFromRouter.path;
-    const matchedPathHandler = matchedPathFromRouter.handler.toString();
-		
-		log(fn, "response", method, path, matchedPathPattern, matchedPathHandler, c.res.status, time(start));
+		const matchedPathPattern = matchedPathFromRouter.path;
+		const matchedPathHandler = matchedPathFromRouter.handler.toString();
+		const loggerFn = c.res.status >= 400? errFn : fn;
+		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler, c.res.status, time(start));
 	};
 };
 
