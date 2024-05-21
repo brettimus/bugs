@@ -9,6 +9,8 @@ Make sure to set up the database (section below)
 
 ```sh
 # MEM: Set up database before this
+npm run db:generate
+npm run db:migrate
 npm run db:seed
 
 npm install
@@ -29,18 +31,16 @@ neonctl auth
 PROJECT_NAME=bug
 neonctl projects create --name $PROJECT_NAME --set-context
 
-# If you already have a project, use this to set the id in a neon context file
-#
-# PROJECT_ID=$(neonctl projects list --output=json | jq --arg name "$PROJECT_NAME" '.projects[] | select(.name == $name) | .id')
-# neonctl set-context --project-id=$PROJECT_ID
+# Set project id because the call to `set-context` below needs it
+PROJECT_ID=$(neonctl projects list --output=json | jq --arg name "$PROJECT_NAME" '.projects[] | select(.name == $name) | .id')
 
 # Create a `dev` db branch then set context
 BRANCH_NAME=dev
 neonctl branches create --name=$BRANCH_NAME
-neonctl set-contenxt --branch=$BRANCH_NAME
+neonctl set-contenxt --project-id=$PROJECT_ID --branch=$BRANCH_NAME
 
 # Finally, add connection string to .dev.vars
-DATABASE_URL=$(neonctl connection-string --project-id=$PROJECT_ID)
+DATABASE_URL=$(neonctl connection-string)
 echo -e '\nDATABASE_URL='$DATABASE_URL'\n' >> .dev.vars
 ```
 
