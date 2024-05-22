@@ -1,11 +1,13 @@
 import { neon } from '@neondatabase/serverless';
-import { Hono } from 'hono'
+import { type Env, type ExecutionContext, Hono } from 'hono'
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
 
 import { Mizu } from "./mizu/mizu";
 import { logger } from "./mizu/mizu-hono-logger";
 import * as schema from "./db/schema";
+import { trace } from '@opentelemetry/api'
+import { instrument, ResolveConfigFn } from '@microlabs/otel-cf-workers'
 
 type Bindings = {
   DATABASE_URL: string;
@@ -15,26 +17,26 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>()
 
 // Mizu Tracing Middleware - Must be called first!
-app.use(async (c, next) => {
-  const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
-  const ctx = c.executionCtx;
+// app.use(async (c, next) => {
+//   const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
+//   const ctx = c.executionCtx;
 
-  const teardown = Mizu.init(
-    config,
-    ctx,
-  );
+//   const teardown = Mizu.init(
+//     config,
+//     ctx,
+//   );
 
-  await next();
+//   await next();
 
-  teardown();
+//   teardown();
 
-  if (c.error) {
-    // console.error("Exception in Hono App", c.error);
-  } else {
-    // TODO - Uncomment for success logs...
-    // console.log("Response Success");
-  }
-});
+//   if (c.error) {
+//     // console.error("Exception in Hono App", c.error);
+//   } else {
+//     // TODO - Uncomment for success logs...
+//     // console.log("Response Success");
+//   }
+// });
 
 // Set up request logging
 //
@@ -97,4 +99,27 @@ app.get('/insects', (c) => {
   return c.text('Hello Hono!')
 })
 
-export default app
+const config: ResolveConfigFn = (env: Env, _trigger) => {
+  return {
+    exporter: {
+      url: 'https://api.honeycomb.io/v1/traces',
+      headers: { 'x-honeycomb-team': env.HONEYCOMB_API_KEY },
+    },
+    service: { name: 'greetings' },
+  }
+}
+
+
+const handler = {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    await fetch('https://cloudflare.com')
+
+    const greeting = "G'day World"
+    trace.getActiveSpan()?.setAttribute('greeting', greeting)
+    ctx.waitUntil(fetch('https://workers.dev'))
+
+    return app.fetch(request, env, ctx);
+  } 
+}
+
+export default instrument(handler, config)
