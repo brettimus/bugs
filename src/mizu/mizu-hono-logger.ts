@@ -1,4 +1,3 @@
-import type { HonoBase } from "hono/hono-base";
 import type { MiddlewareHandler, RouterRoute } from "hono/types";
 import { getPath } from "hono/utils/url";
 
