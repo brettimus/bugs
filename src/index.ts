@@ -15,31 +15,13 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// Set up request logging
-//
-// NOTE - We need to pass in the app object so that we can access the router
-// NOTE - This will log every piece of matched middleware for each request
-//
-app.use(
-  logger(
-    app,
-    // HACK - Use a custom print function that just invokes console.log
-    //        We do this since console.log is monkeypatched later in the mizu middleware
-    (message: string, ...args: unknown[]) => console.log(message, args),
-    // HACK - Use a custom error print function that just invokes console.error
-    //        We do this since console.error is monkeypatched later in the mizu middleware
-    (message: string, ...args: unknown[]) => console.error(message, args)
-  )
-);
 
-// Mizu Tracing Middleware
+// Mizu Tracing Middleware - Must be called first!
 app.use(async (c, next) => {
-  // const rawRequest = c.req.raw;
   const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
   const ctx = c.executionCtx;
 
   Mizu.init(
-    getTraceId(c),
     config,
     ctx,
   );
@@ -53,6 +35,21 @@ app.use(async (c, next) => {
     // console.log("Response Success");
   }
 });
+
+// Set up request logging
+//
+// NOTE - Could also pass in app to get entire app state and log that as well (if we go full "kitchen sink")
+app.use(
+  logger(
+    // // HACK - Use a custom print function that just invokes console.log
+    // //        We do this since console.log is monkeypatched later in the mizu middleware
+    // (message: string, ...args: unknown[]) => console.log(message, args),
+    // // HACK - Use a custom error print function that just invokes console.error
+    // //        We do this since console.error is monkeypatched later in the mizu middleware
+    // (message: string, ...args: unknown[]) => console.error(message, args)
+  )
+);
+
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')

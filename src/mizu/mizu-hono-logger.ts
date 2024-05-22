@@ -1,5 +1,5 @@
 import type { HonoBase } from "hono/hono-base";
-import type { MiddlewareHandler } from "hono/types";
+import type { MiddlewareHandler, RouterRoute } from "hono/types";
 import { getPath } from "hono/utils/url";
 import { getTraceId, setTraceId } from "./stupid-trace";
 
@@ -86,7 +86,6 @@ function logRes(
 }
 
 export const logger = (
-	app: { router: HonoBase["router"] },
 	fn: PrintFunc = console.log,
 	errFn: PrintFunc = console.error,
 ): MiddlewareHandler => {
@@ -103,18 +102,37 @@ export const logger = (
 
 		await next();
 
-		// HACK - Code to get the path *pattern* that was matched
-		//
-		// THIS IS BASED OFF OF SOURCE CODE OF HONO ITSELF!
-		const routerMatchForResponse = app.router.match(c.req.method, c.req.path);
-		const matchedPathFromRouter = routerMatchForResponse[0].map(
-			([[, route]]) => route,
-		)[c.req.routeIndex];
+		const matchedPathPattern = c.req.routePath;
+		console.log("MATCHED PATH ", matchedPathPattern);
+		// app.use(async function logger(c, next) {
+		// 	await next()
+		// 	c.req.matchedRoutes.forEach(({ handler, method, path }, i) => {
+		// 		const name = handler.name || (handler.length < 2 ? '[handler]' : '[middleware]')
+		// 		console.log(
+		// 			method,
+		// 			' ',
+		// 			path,
+		// 			' '.repeat(Math.max(10 - path.length, 0)),
+		// 			name,
+		// 			i === c.req.routeIndex ? '<- respond from here' : ''
+		// 		)
+		// 	})
+		// })
 
-		const matchedPathPattern = matchedPathFromRouter.path;
-		const matchedPathHandler = matchedPathFromRouter.handler.toString();
+		// HACK - We know this will match, so coerce the type to RouterRoute
+		const matchedRoute: RouterRoute = c.req.matchedRoutes.find((route) => {
+			return route.path === c.req.routePath
+		}) as RouterRoute;
+
+		const matchedPathHandler = matchedRoute?.handler;
+
+		const handlerType = matchedPathHandler.length < 2 ? 'handler' :'middleware'
+		console.log("MATCHED ROUTE HANDLER TYPE", handlerType);
+		console.log("MATCHED ROUTE HANDLER ", matchedPathHandler);
+
 		const loggerFn = c.res.status >= 400? errFn : fn;
-		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler, c.res.status, time(start));
+
+		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler?.toString(), c.res.status, time(start));
 	};
 };
 

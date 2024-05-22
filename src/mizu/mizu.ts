@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 import { errorToJson, polyfillWaitUntil } from "./utils";
 
 declare module 'hono' {
@@ -20,7 +22,6 @@ type MizuEnv = {
 
 export const Mizu = {
 	init: (
-		traceId: string,
 		{ MIZU_ENDPOINT: mizuEndpoint }: MizuEnv,
 		ctx: ExecutionContext,
 		service?: string,
@@ -28,6 +29,10 @@ export const Mizu = {
 		// @NOTE - Probably not necessary for cloudflare workers
 		// https://github.com/highlight/highlight/pull/6480
 		polyfillWaitUntil(ctx);
+
+		// TODO - If collisions for trace id, use loggerMap
+		// const loggerMap
+		const traceId = uuidv4();
 
 		// Monkeypatch console.log (etc) because it's the only way to send consumable logs locally without setting up an otel colletor
 		for (const level of RECORDED_CONSOLE_METHODS) {
@@ -40,25 +45,25 @@ export const Mizu = {
 				let message = originalMessage;
 				if (message instanceof Error) {
 					message = JSON.stringify(errorToJson(message));
-					console.log("JSONIFIED ERROR MESSAGE", message);
 				}
+				const payload = {
+					level,
+					traceId,
+					service,
+					message,
+					args,
+					timestamp,
+				};
 				ctx.waitUntil(
 					fetch(mizuEndpoint, {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
 						},
-						body: JSON.stringify({
-							level,
-							traceId,
-							service,
-							message,
-							args,
-							timestamp,
-						}),
+						body: JSON.stringify(payload),
 					}),
 				);
-				originalConsoleMethod.apply(originalConsoleMethod, [message, ...args]);
+				originalConsoleMethod.apply(originalConsoleMethod, [`${traceId}`, message, ...args, ]);
 			};
 		}
 	},

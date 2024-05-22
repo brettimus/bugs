@@ -1,22 +1,21 @@
 import type { Context } from "hono";
-
-let STUPID_TRACE_ID: null | string = null;
-
-export const getStupidTraceId = () => STUPID_TRACE_ID;
+import { v4 as uuidv4 } from 'uuid';
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 // biome-ignore lint/complexity/noBannedTypes: <explanation>
 export const getTraceId = (c: Context<any, string, {}>) => {
-  return c.get("mizuTraceId");
+  return c.get("x-mizu-trace-id");
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 // biome-ignore lint/complexity/noBannedTypes: <explanation>
 export const setTraceId = (c: Context<any, string, {}>) => {
-  STUPID_TRACE_ID = randomId();
-  return c.set("mizuTraceId", STUPID_TRACE_ID)
+  // let traceId = c.req.raw.headers.get("x-mizu-trace-id");
+  let traceId = c.get("x-mizu-trace-id");
+  if (!traceId) {
+    traceId = uuidv4();
+    c.set("x-mizu-trace-id", traceId);
+  } else {
+    console.debug('There was already a trace id in context, skipping setTraceId')
+  }
 };
-
-function randomId() {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-}
