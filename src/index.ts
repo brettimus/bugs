@@ -6,7 +6,6 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { Mizu } from "./mizu/mizu";
 import { logger } from "./mizu/mizu-hono-logger";
 import * as schema from "./db/schema";
-import { getTraceId } from './mizu/stupid-trace';
 
 type Bindings = {
   DATABASE_URL: string;
@@ -15,18 +14,19 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-
 // Mizu Tracing Middleware - Must be called first!
 app.use(async (c, next) => {
   const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
   const ctx = c.executionCtx;
 
-  Mizu.init(
+  const teardown = Mizu.init(
     config,
     ctx,
   );
 
   await next();
+
+  teardown();
 
   if (c.error) {
     // console.error("Exception in Hono App", c.error);
@@ -41,15 +41,14 @@ app.use(async (c, next) => {
 // NOTE - Could also pass in app to get entire app state and log that as well (if we go full "kitchen sink")
 app.use(
   logger(
-    // // HACK - Use a custom print function that just invokes console.log
-    // //        We do this since console.log is monkeypatched later in the mizu middleware
-    // (message: string, ...args: unknown[]) => console.log(message, args),
-    // // HACK - Use a custom error print function that just invokes console.error
-    // //        We do this since console.error is monkeypatched later in the mizu middleware
-    // (message: string, ...args: unknown[]) => console.error(message, args)
+    // HACK - Use a custom print function that just invokes console.log
+    //        We do this since console.log is monkeypatched in the mizu middleware
+    (message: string, ...args: unknown[]) => console.log(message, args),
+    // HACK - Use a custom error print function that just invokes console.error
+    //        We do this since console.error is monkeypatched in the mizu middleware
+    (message: string, ...args: unknown[]) => console.error(message, args)
   )
 );
-
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')

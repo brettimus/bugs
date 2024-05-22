@@ -1,7 +1,6 @@
 import type { HonoBase } from "hono/hono-base";
 import type { MiddlewareHandler, RouterRoute } from "hono/types";
 import { getPath } from "hono/utils/url";
-import { getTraceId, setTraceId } from "./stupid-trace";
 
 const humanize = (times: string[]) => {
 	const [delimiter, separator] = [",", "."];
@@ -90,9 +89,6 @@ export const logger = (
 	errFn: PrintFunc = console.error,
 ): MiddlewareHandler => {
 	return async function logger(c, next) {
-		// HACK - Set trace id, which is used in monkey patched console.* methods!
-		setTraceId(c);
-
 		const { method } = c.req;
 		const path = getPath(c.req.raw);
 
@@ -104,20 +100,6 @@ export const logger = (
 
 		const matchedPathPattern = c.req.routePath;
 		console.log("MATCHED PATH ", matchedPathPattern);
-		// app.use(async function logger(c, next) {
-		// 	await next()
-		// 	c.req.matchedRoutes.forEach(({ handler, method, path }, i) => {
-		// 		const name = handler.name || (handler.length < 2 ? '[handler]' : '[middleware]')
-		// 		console.log(
-		// 			method,
-		// 			' ',
-		// 			path,
-		// 			' '.repeat(Math.max(10 - path.length, 0)),
-		// 			name,
-		// 			i === c.req.routeIndex ? '<- respond from here' : ''
-		// 		)
-		// 	})
-		// })
 
 		// HACK - We know this will match, so coerce the type to RouterRoute
 		const matchedRoute: RouterRoute = c.req.matchedRoutes.find((route) => {

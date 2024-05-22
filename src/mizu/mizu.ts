@@ -30,14 +30,21 @@ export const Mizu = {
 		// https://github.com/highlight/highlight/pull/6480
 		polyfillWaitUntil(ctx);
 
+		const teardownFunctions: Array<() => void> = [];
+
 		// TODO - If collisions for trace id, use loggerMap
 		// const loggerMap
+
+		// TODO - take from headers then fall back to uuid?
 		const traceId = uuidv4();
 
 		// Monkeypatch console.log (etc) because it's the only way to send consumable logs locally without setting up an otel colletor
 		for (const level of RECORDED_CONSOLE_METHODS) {
 			const originalConsoleMethod = console[level];
-
+			// HACK - We need to ___
+			teardownFunctions.push(() => {
+				console[level] = originalConsoleMethod;
+			})
 			// TODO - Fix type of `originalMessage`, since Hono automatically calls `console.error` with an `Error` when a handler throws an uncaught error locally!!!
 			//        and devs could really put anything in there...
 			console[level] = (originalMessage: string | Error, ...args: unknown[]) => {
@@ -66,6 +73,17 @@ export const Mizu = {
 				originalConsoleMethod.apply(originalConsoleMethod, [`${traceId}`, message, ...args, ]);
 			};
 		}
+
+		return () => {
+			for (const teardownFunction of teardownFunctions) {
+				teardownFunction();
+			}
+		};
 	},
+	// teardown: () => {
+	// 	for (const level of RECORDED_CONSOLE_METHODS) {
+	// 		console[level] = console[level].bind(console);
+	// 	}
+	// }
 };
 
