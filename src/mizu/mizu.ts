@@ -70,7 +70,7 @@ export const Mizu = {
 						body: JSON.stringify(payload),
 					}),
 				);
-				originalConsoleMethod.apply(originalConsoleMethod, [`${traceId}`, message, ...args, ]);
+				originalConsoleMethod.apply(originalConsoleMethod, [`${traceId}`, message, ...args,]);
 			};
 		}
 

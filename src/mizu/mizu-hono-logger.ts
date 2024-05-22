@@ -67,6 +67,7 @@ function logRes(
 	path: string,
 	matchedPathPattern?: string,
 	matchedPathHandler?: string,
+	handlerType?: string,
 	status = 0,
 	elapsed?: string,
 ) {
@@ -76,6 +77,7 @@ function logRes(
 		path,
 		route: matchedPathPattern,
 		handler: matchedPathHandler,
+		handlerType, // Unsure if this is useful... or how
 		status: colorStatus(status),
 		elapsed,
 	};
@@ -99,7 +101,6 @@ export const logger = (
 		await next();
 
 		const matchedPathPattern = c.req.routePath;
-		console.log("MATCHED PATH ", matchedPathPattern);
 
 		// HACK - We know this will match, so coerce the type to RouterRoute
 		const matchedRoute: RouterRoute = c.req.matchedRoutes.find((route) => {
@@ -109,12 +110,10 @@ export const logger = (
 		const matchedPathHandler = matchedRoute?.handler;
 
 		const handlerType = matchedPathHandler.length < 2 ? 'handler' :'middleware'
-		console.log("MATCHED ROUTE HANDLER TYPE", handlerType);
-		console.log("MATCHED ROUTE HANDLER ", matchedPathHandler);
 
 		const loggerFn = c.res.status >= 400? errFn : fn;
 
-		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler?.toString(), c.res.status, time(start));
+		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler?.toString(), handlerType, c.res.status, time(start));
 	};
 };
 
