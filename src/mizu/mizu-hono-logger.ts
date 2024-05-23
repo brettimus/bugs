@@ -47,6 +47,7 @@ function logReq(
 	env: Record<string, string>,
 	params: Record<string, string>,
 	query: Record<string, string>,
+	file?: string | null
 ) {
 	const out = {
 		lifecycle: "request",
@@ -56,6 +57,7 @@ function logReq(
 		env,
 		params,
 		query,
+		file,
 	};
 
 	// TODO - Add message here?
@@ -96,6 +98,9 @@ export const logger = (
 	errFn: PrintFunc = console.error,
 ): MiddlewareHandler => {
 	return async function logger(c, next) {
+		const stack = new Error().stack;
+		const file = getFileFromStackTrace(stack ?? "");
+		// TODO - parse file from stack
 		const { method } = c.req;
 		const path = getPath(c.req.raw);
 
@@ -104,7 +109,7 @@ export const logger = (
 			reqHeaders[key] = value;
 		})
 
-		logReq(fn, method, reqHeaders, path, c.env, c.req.param(), c.req.query);
+		logReq(fn, method, reqHeaders, path, c.env, c.req.param(), c.req.query, file);
 
 		const start = Date.now();
 
@@ -135,7 +140,6 @@ export const logger = (
 		try {
 			// TODO - Read based off of content-type header
 			body = await clonedResponse.text()
-			console.log('Response Body:', body);
 		} catch (error) {
 			// TODO - Check when this fails
 			console.error('Error reading response body:', error);
@@ -151,4 +155,24 @@ export const logger = (
 function getColorEnabled(): boolean {
 	return false;
 	// return typeof process !== 'undefined' && process.stdout && process.stdout.isTTY;
+}
+
+function getFileFromStackTrace(stack: string) {
+	// Regular expression to match the pattern "file://path:line:column"
+	const regex = /file:\/\/(\/[\w\-. /]+):(\d+):(\d+)/;
+
+	// Attempt to match the regex pattern against the provided stack trace
+	const match = stack.match(regex);
+
+	if (match) {
+		// if (stack.includes("neon")) {
+		//   debugger
+		// }
+		// Extract the file path, line, and column from the regex match
+		const [, source] = match;
+		return source
+	}
+
+	// Return null or throw an error if no match is found
+	return null;
 }

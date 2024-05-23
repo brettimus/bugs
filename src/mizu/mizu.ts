@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { errorToJson, polyfillWaitUntil } from "./utils";
+import { errorToJson, neonDbErrorToJson, polyfillWaitUntil } from "./utils";
+import type { NeonDbError } from '@neondatabase/serverless';
 
 declare module 'hono' {
 	interface ContextVariableMap {
@@ -47,15 +48,18 @@ export const Mizu = {
 			})
 			// TODO - Fix type of `originalMessage`, since Hono automatically calls `console.error` with an `Error` when a handler throws an uncaught error locally!!!
 			//        and devs could really put anything in there...
-			console[level] = (originalMessage: string | Error, ...args: unknown[]) => {
+			console[level] = (originalMessage: string | Error | NeonDbError, ...args: unknown[]) => {
 				const timestamp = new Date().toISOString();
 
 				const callerLocation = extractCallerLocation((new Error().stack ?? "").split("\n")[2]);
 
 				let message = originalMessage;
-				if (message instanceof Error) {
+				if (typeof message !== "string" && message.name === "NeonDbError") {
+					message = JSON.stringify(neonDbErrorToJson(message as NeonDbError));
+				} if (message instanceof Error) {
 					message = JSON.stringify(errorToJson(message));
 				}
+
 				const payload = {
 					level,
 					traceId,

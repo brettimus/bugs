@@ -7,8 +7,17 @@ import { Mizu } from "./mizu/mizu";
 import { logger } from "./mizu/mizu-hono-logger";
 import * as schema from "./db/schema";
 
+class BugError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BugError';
+    Error.captureStackTrace(this, BugError);
+  }
+}
+
 type Bindings = {
   DATABASE_URL: string;
+  DATABASE_URL_BLANK: string;
   MIZU_ENDPOINT: string;
 };
 
@@ -96,5 +105,28 @@ app.get('/insects', (c) => {
   const db = drizzle(sql);
   return c.text('Hello Hono!')
 })
+
+// ERROR SCENARIO: Accessing table or column that does not exist (e.g., before running migrations)
+//
+app.get('/no-db', (c) => {
+  const sql = neon(c.env.DATABASE_URL_BLANK);
+  const db = drizzle(sql);
+  return c.text('Hello Hono!')
+})
+
+// ERROR SCENARIO: Inserting into database, but the query is wrong...
+//
+app.get('/bad-insert-neon', async (c) => {
+  const sql = neon(c.env.DATABASE_URL);
+  // const db = drizzle(sql);
+  const insertResponse = await sql("insert into bugs (name, description, price, attributes) values ($1, $2, $3)", ["Mantis", "...", 10.99, { pincers: true }]);
+
+  return c.text('Hello Hono!')
+})
+
+app.get('/stack-trace', (c) => {
+  const err = new BugError('This is a bug error');
+  return c.text(err.stack ?? 'No stack trace available')
+});
 
 export default app
