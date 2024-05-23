@@ -42,18 +42,20 @@ type PrintFunc = (str: string, ...rest: string[]) => void;
 function logReq(
 	fn: PrintFunc,
 	method: string,
+	headers: Record<string, string>,
 	path: string,
 	env: Record<string, string>,
 	params: Record<string, string>,
 	query: Record<string, string>,
 ) {
 	const out = {
-		method,
 		lifecycle: "request",
+		method,
+		headers,
 		path,
 		env,
 		params,
-		query
+		query,
 	};
 
 	// TODO - Add message here?
@@ -68,6 +70,8 @@ function logRes(
 	matchedPathHandler?: string,
 	handlerType?: string,
 	status = 0,
+	headers?: Record<string, string>,
+	body?: string,
 	elapsed?: string,
 ) {
 	const out = {
@@ -78,6 +82,8 @@ function logRes(
 		handler: matchedPathHandler,
 		handlerType, // Unsure if this is useful... or how
 		status: colorStatus(status),
+		headers,
+		body,
 		elapsed,
 	};
 
@@ -93,7 +99,12 @@ export const logger = (
 		const { method } = c.req;
 		const path = getPath(c.req.raw);
 
-		logReq(fn, method, path, c.env, c.req.param(), c.req.query);
+		const reqHeaders: Record<string, string> = {}
+		c.req.raw.headers.forEach((value, key) => {
+			reqHeaders[key] = value;
+		})
+
+		logReq(fn, method, reqHeaders, path, c.env, c.req.param(), c.req.query);
 
 		const start = Date.now();
 
@@ -110,9 +121,30 @@ export const logger = (
 
 		const handlerType = matchedPathHandler.length < 2 ? 'handler' :'middleware'
 
+
+		// Clone the response so the original isn't affected
+  	const clonedResponse = c.res.clone();
+
+		const resHeaders: Record<string, string> = {}
+		c.res.headers.forEach((value, key) => {
+			resHeaders[key] = value;
+		})
+
+		// Use text() to read the body. This does not affect the original response.
+		let body: string;
+		try {
+			// TODO - Read based off of content-type header
+			body = await clonedResponse.text()
+			console.log('Response Body:', body);
+		} catch (error) {
+			// TODO - Check when this fails
+			console.error('Error reading response body:', error);
+			body = "__COULD_NOT_PARSE_BODY__";
+		}
+
 		const loggerFn = c.res.status >= 400? errFn : fn;
 
-		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler?.toString(), handlerType, c.res.status, time(start));
+		logRes(loggerFn, method, path, matchedPathPattern, matchedPathHandler?.toString(), handlerType, c.res.status, resHeaders, body, time(start));
 	};
 };
 

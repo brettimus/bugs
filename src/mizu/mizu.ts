@@ -49,6 +49,9 @@ export const Mizu = {
 			//        and devs could really put anything in there...
 			console[level] = (originalMessage: string | Error, ...args: unknown[]) => {
 				const timestamp = new Date().toISOString();
+
+				const callerLocation = extractCallerLocation((new Error().stack ?? "").split("\n")[2]);
+
 				let message = originalMessage;
 				if (message instanceof Error) {
 					message = JSON.stringify(errorToJson(message));
@@ -59,6 +62,7 @@ export const Mizu = {
 					service,
 					message,
 					args,
+					callerLocation,
 					timestamp,
 				};
 				ctx.waitUntil(
@@ -87,3 +91,22 @@ export const Mizu = {
 	// }
 };
 
+
+function extractCallerLocation(callerLine?: string) {
+	if (!callerLine) {
+		return null;
+	}
+
+	// Optional: extract the exact file and line number from the callerLine string
+	const match = callerLine.match(/at (.*?) \(?(.*?):(\d+):(\d+)\)?$/);
+	if (match) {
+		const [_, method, file, line, column] = match;
+		return {
+			method,
+			file,
+			line,
+			column,
+		}
+	}
+	return null;
+}
