@@ -119,7 +119,20 @@ app.get('/stack-trace', (c) => {
   return c.text(err.stack ?? 'No stack trace available')
 });
 
+app.get('/fetch', async (c) => {
+  const todo = await fetch('https://jsonplaceholder.typicode.com/todos/1')
+    .then(response => response.json())
+    
+  return c.json({ todo })
+});
+
+app.get('/bad-fetch', async (c) => {
+  const todo = await fetch('https://jsonplaceholderrrr.typicode.com/todos/1').then(response => response.json())
+
+  return c.json({ todo })
+});
+
 // TODO - Add favicon
-// app.get('/favicon.ico', (c) => c.text('No favicon')) 
+app.get('/favicon.ico', (c) => c.text('No favicon')) 
 
 export default app
