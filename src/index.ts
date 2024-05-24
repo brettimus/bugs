@@ -106,7 +106,7 @@ app.get('/insects', (c) => {
   return c.text('Hello Hono!')
 })
 
-// ERROR SCENARIO: Accessing table or column that does not exist (e.g., before running migrations)
+// ERROR SCENARIO: Accessing an env var before reloading dev
 //
 app.get('/no-db', (c) => {
   const sql = neon(c.env.DATABASE_URL_BLANK);
@@ -128,5 +128,8 @@ app.get('/stack-trace', (c) => {
   const err = new BugError('This is a bug error');
   return c.text(err.stack ?? 'No stack trace available')
 });
+
+// TODO - Add favicon
+app.get('/favicon.ico', (c) => c.text('No favicon')) 
 
 export default app
