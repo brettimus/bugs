@@ -52,8 +52,8 @@ export const Mizu = {
 
 		const teardownFunctions: Array<() => void> = [];
 
-		// const { originalFetch, undo: undoReplaceFetch } = replaceFetch();
-		// teardownFunctions.push(undoReplaceFetch);
+		const { originalFetch, undo: undoReplaceFetch } = replaceFetch();
+		teardownFunctions.push(undoReplaceFetch);
 
 		// TODO - (future) Take the traceId from headers but then fall back to uuid here?
 		const traceId = generateUUID();
