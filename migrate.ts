@@ -12,10 +12,11 @@ const main = async () => {
   try {
     await migrate(databaseUrl, { migrationsFolder: 'drizzle' });
     console.log('Migration complete');
+    process.exit(0);
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    process.exit(1);
   }
-  process.exit(0);
 };
 
 main();

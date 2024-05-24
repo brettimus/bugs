@@ -3,8 +3,7 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
 
-import { Mizu } from "./mizu/mizu";
-import { logger } from "./mizu/mizu-hono-logger";
+import { Mizu, logger } from "./mizu";
 import * as schema from "./db/schema";
 
 class BugError extends Error {
@@ -48,16 +47,7 @@ app.use(async (c, next) => {
 // Set up request logging
 //
 // NOTE - Could also pass in app to get entire app state and log that as well (if we go full "kitchen sink")
-app.use(
-  logger(
-    // HACK - Use a custom print function that just invokes console.log
-    //        We do this since console.log is monkeypatched in the mizu middleware
-    (message: string, ...args: unknown[]) => console.log(message, args),
-    // HACK - Use a custom error print function that just invokes console.error
-    //        We do this since console.error is monkeypatched in the mizu middleware
-    (message: string, ...args: unknown[]) => console.error(message, args)
-  )
-);
+app.use(logger());
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
@@ -130,6 +120,6 @@ app.get('/stack-trace', (c) => {
 });
 
 // TODO - Add favicon
-app.get('/favicon.ico', (c) => c.text('No favicon')) 
+// app.get('/favicon.ico', (c) => c.text('No favicon')) 
 
 export default app
