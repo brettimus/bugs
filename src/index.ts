@@ -2,8 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
-
-import { Mizu, logger } from "./mizu";
+import { createHonoMiddleware } from '@mizu-dev/hono'
 import * as schema from "./db/schema";
 
 class BugError extends Error {
@@ -22,32 +21,8 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// Mizu Tracing Middleware - Must be called first!
-app.use(async (c, next) => {
-  const config = { MIZU_ENDPOINT: c.env.MIZU_ENDPOINT };
-  const ctx = c.executionCtx;
-
-  const teardown = Mizu.init(
-    config,
-    ctx,
-  );
-
-  await next();
-
-  teardown();
-
-  if (c.error) {
-    // console.error("Exception in Hono App", c.error);
-  } else {
-    // TODO - Uncomment for success logs...
-    // console.log("Response Success");
-  }
-});
-
-// Set up request logging
-//
-// NOTE - Could also pass in app to get entire app state and log that as well (if we go full "kitchen sink")
-app.use(logger());
+// @ts-ignore
+app.use(createHonoMiddleware(app));
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
@@ -133,6 +108,6 @@ app.get('/bad-fetch', async (c) => {
 });
 
 // TODO - Add favicon
-app.get('/favicon.ico', (c) => c.text('No favicon')) 
+// app.get('/favicon.ico', (c) => c.text('No favicon')) 
 
 export default app
