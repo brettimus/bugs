@@ -25,7 +25,8 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use(createHonoMiddleware(app));
 
 app.get('/', (c) => {
-  return c.text('Hello Hono!')
+  const echo = c.req.query("echo") ?? "";
+  return c.text(`Hello Hono! ${echo}`)
 })
 
 app.get('/bugs', async (c) => {
@@ -34,6 +35,14 @@ app.get('/bugs', async (c) => {
   const bugs = await db.select().from(schema.bugs);
   return c.json({ bugs })
 })
+
+app.post('/bugs', async (c) => {
+  const sql = neon(c.env.DATABASE_URL);
+  const db = drizzle(sql);
+  const bugs = await db.select().from(schema.bugs);
+  return c.json({ bugs })
+})
+
 
 app.get('/bugs/:id', async (c) => {
   const { id: idString } = c.req.param();
