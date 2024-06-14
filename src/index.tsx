@@ -22,8 +22,9 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// @ts-ignore
-app.use(createHonoMiddleware(app));
+const fpxMiddleware = createHonoMiddleware(app);
+
+app.use(fpxMiddleware);
 
 app.get('/', (c) => {
   const echo = c.req.query("echo") ?? "";
