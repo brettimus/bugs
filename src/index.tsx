@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { createHonoMiddleware } from '@mizu-dev/hono'
 import * as schema from "./db/schema";
+import { Only } from './components';
 
 class BugError extends Error {
   constructor(message: string) {
@@ -115,6 +116,15 @@ app.get('/bad-fetch', async (c) => {
 
   return c.json({ todo })
 });
+
+app.get('/is-escaped', (c) => {
+  return c.html(
+    <Only if={true}>
+      <div>Hi</div>
+      <div>there</div>
+    </Only>
+  )
+})
 
 // TODO - Add favicon
 // app.get('/favicon.ico', (c) => c.text('No favicon')) 

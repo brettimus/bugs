@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "dev": "wrangler dev src/index.ts",
-    "deploy": "wrangler deploy --minify src/index.ts",
+    "dev": "wrangler dev src/index.tsx",
+    "deploy": "wrangler deploy --minify src/index.tsx",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx migrate.ts",
     "db:seed": "tsx seed.ts"
