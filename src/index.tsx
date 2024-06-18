@@ -39,12 +39,17 @@ app.get('/bugs', async (c) => {
 })
 
 app.post('/bugs', async (c) => {
+  const { name } = await c.req.json();
+  if (!name) {
+    throw new BugError("Name is required");
+  }
   const sql = neon(c.env.DATABASE_URL);
   const db = drizzle(sql);
-  const bugs = await db.select().from(schema.bugs);
+  const bugs = await db.insert(schema.bugs).values({
+    name
+  });
   return c.json({ bugs })
 })
-
 
 app.get('/bugs/:id', async (c) => {
   const { id: idString } = c.req.param();
@@ -118,14 +123,14 @@ app.get('/bad-fetch', async (c) => {
   return c.json({ todo })
 });
 
-app.get('/is-escaped', (c) => {
-  return c.html(
-    <Only if={true}>
-      <div>Hi</div>
-      <div>there</div>
-    </Only>
-  )
-})
+// app.get('/is-escaped', (c) => {
+//   return c.html(
+//     <Only if={true}>
+//       <div>Hi</div>
+//       <div>there</div>
+//     </Only>
+//   )
+// })
 
 // TODO - Add favicon
 // app.get('/favicon.ico', (c) => c.text('No favicon')) 

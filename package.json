@@ -7,7 +7,7 @@
     "db:seed": "tsx seed.ts"
   },
   "dependencies": {
-    "@mizu-dev/hono": "file:../fpx/client-library/mizu-dev-hono-0.2.0-alpha.2.tgz",
+    "@mizu-dev/hono": "file:../fpx/client-library",
     "@neondatabase/serverless": "^0.9.3",
     "drizzle-orm": "^0.30.10",
     "hono": "^4.3.9"
